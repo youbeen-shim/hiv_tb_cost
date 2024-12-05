@@ -1,0 +1,170 @@
+---
+title: "EDA"
+output: html_notebook
+---
+
+Import Data
+```{r}
+library(haven)
+
+data <- read_dta("../VisualStudio/yura_stata/fulltrial.dta")
+```
+
+
+Creates comprehensive summary statistics for each cost component by study arm
+Generates both box plots and bar plots with error bars
+Performs both linear and quantile regression to assess factors associated with total cost
+Analyzes and visualizes the proportion each cost component contributes to total cost
+Uses efficient data manipulation with tidyverse
+Includes proper handling of missing values
+Provides appropriate scaling and labeling of visualizations
+```{r}
+# Load required libraries
+library(tidyverse)
+library(gtsummary)
+library(ggplot2)
+library(scales)
+library(broom)
+library(quantreg)
+
+selected_cols <- c("sv1_twowaycost", "sv1_childcarecost",
+                   "sv1_additionalfoodcost", "calculatedwageloss", "p2cost",
+                   "sv1_anythingelsecost", "loss_v2")
+
+# Create summary statistics by study arm
+cost_summary <- data %>%
+  group_by(outcome_twoarm) %>%
+  summarise(across(
+    selected_cols,
+    list(
+      median = ~median(., na.rm = TRUE),
+      mean = ~mean(., na.rm = TRUE),
+      sd = ~sd(., na.rm = TRUE),
+      q25 = ~quantile(., 0.25, na.rm = TRUE),
+      q75 = ~quantile(., 0.75, na.rm = TRUE),
+      n = ~sum(!is.na(.))
+    )
+  )) %>%
+  pivot_longer(cols = -outcome_twoarm,
+               names_to = c("cost_type", "stat"),
+               names_pattern = "(.+)_(.+)$")
+
+# Create visualizations
+# 1. Box plots
+cost_boxplot <- data %>%
+  pivot_longer(cols = selected_cols,
+               names_to = "cost_type",
+               values_to = "cost") %>%
+  ggplot(aes(x = factor(outcome_twoarm), y = cost, 
+             fill = factor(outcome_twoarm))) +
+  geom_boxplot() +
+  facet_wrap(~cost_type, scales = "free_y") +
+  scale_y_continuous(labels = scales::comma) +
+  theme_minimal() +
+  labs(x = "Study Arm",
+       y = "Cost (USh)",
+       fill = "Study Arm") +
+  theme(legend.position = "bottom")
+plot(cost_boxplot)
+
+
+# 2. Bar plots with error bars
+cost_barplot <- data %>%
+  pivot_longer(cols = selected_cols,
+               names_to = "cost_type",
+               values_to = "cost") %>%
+  group_by(outcome_twoarm, cost_type) %>%
+  summarise(
+    mean_cost = mean(cost, na.rm = TRUE),
+    se_cost = sd(cost, na.rm = TRUE) / sqrt(n()),
+    .groups = 'drop'
+  ) %>%
+  ggplot(aes(x = factor(outcome_twoarm), y = mean_cost, 
+             fill = factor(outcome_twoarm))) +
+  geom_bar(stat = "identity") +
+  geom_errorbar(aes(ymin = mean_cost - se_cost, 
+                    ymax = mean_cost + se_cost),
+                width = 0.2) +
+  facet_wrap(~cost_type, scales = "free_y") +
+  scale_y_continuous(labels = scales::comma) +
+  theme_minimal() +
+  labs(x = "Study Arm",
+       y = "Mean Cost (USh)",
+       fill = "Study Arm") +
+  theme(legend.position = "bottom")
+plot(cost_barplot)
+
+# Linear regression analysis
+lm_model <- data %>%
+  lm(total_cost ~ factor(outcome_twoarm) + age_cat + sex + 
+     far_distance + enroll_period, data = .)
+
+# Quantile regression (median)
+qr_model <- data %>%
+  rq(total_cost ~ factor(outcome_twoarm) + age_cat + sex + 
+     far_distance + enroll_period, tau = 0.5, data = .)
+
+# Create tidy summary of regression results
+regression_results <- bind_rows(
+  tidy(lm_model) %>% mutate(model = "Linear Regression"),
+  tidy(qr_model) %>% mutate(model = "Quantile Regression")
+)
+
+# Analyze contribution of each cost component
+cost_contribution <- data %>%
+  group_by(outcome_twoarm) %>%
+  summarise(across(
+    selected_cols,
+    ~mean(./loss_v2, na.rm = TRUE)
+  )) %>%
+  pivot_longer(cols = -outcome_twoarm,
+               names_to = "cost_component",
+               values_to = "proportion")
+
+# Create proportion plot
+cost_proportion_plot <- ggplot(cost_contribution, 
+       aes(x = factor(outcome_twoarm), 
+           y = proportion, 
+           fill = cost_component)) +
+  geom_bar(stat = "identity", position = "fill") +
+  scale_y_continuous(labels = scales::percent) +
+  theme_minimal() +
+  labs(x = "Study Arm",
+       y = "Proportion of Total Cost",
+       fill = "Cost Component") +
+  theme(legend.position = "right")
+
+# List of outputs
+list(
+  summary_stats = cost_summary,
+  box_plot = cost_boxplot,
+  bar_plot = cost_barplot,
+  proportion_plot = cost_proportion_plot,
+  linear_regression = tidy(lm_model),
+  quantile_regression = tidy(qr_model)
+)
+```
+
+```{r}
+cost_barplot
+```
+
+
+
+
+```{r}
+data <- data %>%
+  mutate(sex)
+
+sex, age_atenroll
+
+
+hist(data$sv1_timetraveltypical)
+sum(data$sv1_timetraveltypical >= 3)
+
+temp2 <- data %>%
+  filter(!is.na(choice_initial)) %>%
+  filter(sv1_timetraveltypical >= 3) %>%
+  select(sex, age_atenroll, employment_recode, faraway, hourlywage, choice_initial, sv1_timetraveltypical)
+```
+

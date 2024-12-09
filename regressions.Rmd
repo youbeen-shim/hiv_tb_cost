@@ -1,0 +1,153 @@
+---
+title: "Regressions"
+output: html_notebook
+---
+
+```{r}
+library(haven)
+
+data <- read_dta("../VisualStudio/yura_stata/fulltrial.dta")
+```
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(car)
+```
+```{r}
+# Generate a sequence of numbers (example variable)
+x <- seq(1, 100, by=1)
+
+# Plot the linear graph
+plot(x, x, type="l", col="blue", lwd=2, 
+     xlab="Index", ylab="Value", 
+     main="Linear Graph of a Single Variable")
+
+
+# Log-transform the variable
+log_x <- log(x)
+
+# Plot the log-transformed graph
+plot(x, log_x, type="l", col="red", lwd=2, 
+     xlab="Original Variable", ylab="Log-Transformed Value", 
+     main="Log-Transformed Graph of the Variable")
+
+
+plot(temp$hourlywage, temp$hourlywage_log)
+plot(temp$totalvisitcost_v2, temp$tc_log)
+plot(temp$hourlywage_log, temp$tc_log) #, col=factor(temp$age_atenroll > 45))
+```
+
+
+```{r}
+sanitycheck <- data %>%
+  dplyr::filter(loss_v2 < 0)
+```
+
+
+```{r}
+temp <- data %>%
+  filter(!is.na(totalvisitcost_v2)) %>%
+  mutate(
+    employed = ifelse(employment_recode == 0, 0, 1),
+    hourlywage_log = log(hourlywage + 1),
+    tc_log = log(totalvisitcost_v2 + 1),
+    loss_log = log(loss_v2 + 1)
+  ) %>%
+  select(
+    age_atenroll,
+    sex,
+    faraway,
+    hourlywage,
+    employed,
+    hourlywage,
+    hourlywage_log,
+    totalvisitcost_v2,
+    tc_log,
+    loss_v2,
+    loss_log
+  )
+```
+
+```{r}
+
+# Fit linear regression
+model <- lm(loss_log ~ age_atenroll + sex + faraway + hourlywage_log, data = temp)
+# model <- lm(loss_log ~ age_atenroll + sex + faraway + employed + hourlywage_log, data = temp)
+# Summary statistics
+summary(model)
+
+# Diagnostic plots
+par(mfrow=c(2,2))
+plot(model)
+
+# Additional diagnostics
+vif(model)  # Check multicollinearity
+ncvTest(model)  # Test for heteroscedasticity
+shapiro.test(residuals(model))  # Test normality of residuals
+
+# Robust standard errors
+library(sandwich)
+library(lmtest)
+coeftest(model, vcov = vcovHC(model, type = "HC1"))
+```
+
+```{r}
+library(GGally)
+
+# Create correlation plot
+ggpairs(temp[c("age_atenroll", "sex", "faraway", "employed", "hourlywage_log", "loss_log")],
+       diag = list(continuous = "barDiag"),
+       lower = list(continuous = "smooth"))
+
+# Alternatively, numerical correlation matrix
+cor(temp[c("age_atenroll", "sex", "faraway", "employed", "hourlywage_log", "loss_log")], 
+   use = "complete.obs")
+```
+```{r}
+temp2 <- data %>%
+  filter(studyarm_withchoice == 3 | studyarm_withchoice == 4) %>%
+  mutate(choose_sat = ifelse(studyarm_withchoice == 4, 1, 0)) %>%
+  mutate(
+    employed = ifelse(employment_recode == 0, 0, 1),
+    hourlywage_log = log(hourlywage + 1),
+    tc_log = log(totalvisitcost_v2 + 1),
+    loss_log = log(loss_v2 + 1)
+  ) %>%
+  mutate(ratio_of_cost_to_income = log(hourlywage/loss_v2 + 1))
+table(temp2$choose_sat)
+
+model_log <- glm(choose_sat ~ age_atenroll + sex + faraway + hourlywage_log + priortb,
+                family = binomial(link = "logit"),
+                data = temp2)
+
+# Model summary
+summary(model_log)
+
+# Hosmer-Lemeshow goodness of fit test
+hoslem.test(model_log$y, fitted(model_log))
+
+# Diagnostic plots
+# Residual plots
+par(mfrow=c(2,2))
+plot(model_log)
+
+# ROC curve
+library(pROC)
+roc_curve <- roc(temp2$choose_sat, fitted(model_log))
+plot(roc_curve)
+auc(roc_curve)
+
+# VIF for multicollinearity
+vif(model_log)
+```
+
+```{r}
+ratio_model <- lm(ratio_of_cost_to_income ~ age_atenroll + sex + faraway,
+                data = temp2)
+
+# Model summary
+summary(ratio_model)
+```
+

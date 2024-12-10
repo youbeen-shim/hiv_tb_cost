@@ -179,3 +179,258 @@ ggplot(temp, aes(y = age_atenroll, x = hourlywage)) +
   theme_minimal() # Apply a clean theme
 ```
 
+```{r}
+temp3 <- data %>%
+  mutate(
+    employed = ifelse(employment_recode == 0, 0, 1),
+    hourlywage_log = log(hourlywage + 1),
+    tc_log = log(totalvisitcost_v2 + 1),
+    loss_log = log(loss_v2 + 1)
+  ) %>%
+  mutate(
+    ratio_of_cost_to_income = log(hourlywage/loss_v2 + 1),
+    total_income = sv1_earnperweek * 12,
+    cost_over_income = totalvisitcost_v2 / total_income
+  ) %>%
+  mutate(
+    over_10 = cost_over_income >= .1,
+    over_20 = cost_over_income >= .2,
+    over_30 = cost_over_income >= .3,
+    over_35 = cost_over_income >= .35,
+    over_40 = cost_over_income >= .4,
+    over_50 = cost_over_income >= .5,
+    over_100 = cost_over_income >= 1
+  ) %>%
+  mutate(
+    final_outcome = ifelse(outcome_twoarm == 1, 0, 1)
+  )
+
+hist(temp3$cost_over_income)
+max(temp3$cost_over_income, na.rm = TRUE)
+
+prop.table(table(temp3$over_10, temp3$outcome_twoarm),2)
+prop.table(table(temp3$over_20, temp3$outcome_twoarm),2)
+prop.table(table(temp3$over_30, temp3$outcome_twoarm),2)
+prop.table(table(temp3$over_35, temp3$outcome_twoarm),2)
+prop.table(table(temp3$over_40, temp3$outcome_twoarm),2)
+prop.table(table(temp3$over_50, temp3$outcome_twoarm),2)
+prop.table(table(temp3$over_100, temp3$outcome_twoarm),2)
+
+model_cata <- glm(over_20 ~ final_outcome + age_atenroll + sex + faraway + priortb + employed,
+                family = binomial(link = "logit"),
+                data = temp3)
+
+# Model summary
+summary(model_cata)
+exp(coefficients(model_cata))
+```
+
+
+```{r}
+
+```
+
+```{r}
+model_cata_30 <- glm(over_30 ~ final_outcome + age_atenroll + sex + 
+                       faraway + priortb + employed,
+                family = binomial(link = "logit"),
+                data = temp3)
+
+# Model summary
+summary(model_cata_30)
+exp(coefficients(model_cata_30))
+```
+
+```{r}
+model_cata_40 <- glm(over_40 ~ final_outcome + age_atenroll + sex + 
+                       faraway + priortb + employed,
+                family = binomial(link = "logit"),
+                data = temp3)
+
+# Model summary
+summary(model_cata_40)
+exp(coefficients(model_cata_40))
+```
+
+
+
+
+```{r}
+temp_r <- temp3 %>%
+  filter(is.na(final_outcome))
+
+prop.table(table(temp3$sex))
+prop.table(table(temp_r$sex))
+
+
+temp_x <- temp3 %>%
+  dplyr::filter(sv1_earnperweek == 0)
+prop.table(table(temp_x$sex))
+```
+
+
+```{r}
+temp4 <- data %>%
+  filter(
+    !is.na(earnperweek_6week)
+  ) %>%
+  mutate(
+    employed = ifelse(employment_recode == 0, 0, 1),
+    hourlywage_log = log(hourlywage + 1),
+    tc_log = log(totalvisitcost_v2 + 1),
+    loss_log = log(loss_v2 + 1)
+  ) %>%
+  mutate(
+    ratio_of_cost_to_income = log(hourlywage/loss_v2 + 1),
+    total_income = sv1_earnperweek * 6 + earnperweek_6week * 6,
+    total_income2 = sv1_earnperweek * 12,
+    cost_over_income = totalvisitcost_v2 / total_income
+  ) %>%
+  mutate(
+    over_10 = cost_over_income >= .1,
+    over_20 = cost_over_income >= .2,
+    over_30 = cost_over_income >= .3,
+    over_40 = cost_over_income >= .4,
+    over_50 = cost_over_income >= .5
+  ) %>%
+  mutate(
+    final_outcome = ifelse(outcome_twoarm == 1, 0, 1)
+  )
+
+model_cata_updateearnings <- glm(over_20 ~ final_outcome + age_atenroll + sex + 
+                    faraway + priortb,
+                family = binomial(link = "logit"),
+                data = temp4)
+
+# Model summary
+summary(model_cata_updateearnings)
+exp(coefficients(model_cata_updateearnings))
+```
+
+```{r}
+temp5 <- data %>%
+  mutate(
+    final_outcome = ifelse(outcome_twoarm == 1, 0, 1),
+    employed = ifelse(employment_recode == 0, 0, 1),
+    hourlywage_log = log(hourlywage + 1),
+    tc_log = log(totalvisitcost_v2 + 1),
+    loss_log = log(loss_v2 + 1)
+  ) %>%
+  mutate(
+    total_income = sv1_earnperweek * 12,
+    cost_over_income = totalvisitcost_v2 / total_income
+  ) %>%
+  mutate(
+    over_10 = cost_over_income >= .1
+  )
+
+hi <- prop.table(table(temp5$over_10, temp5$final_outcome), 2)
+hi[2,1]
+hi[2,2]
+```
+
+```{r}
+# Function to analyze cost-to-income thresholds and their relationship with outcomes
+analyze_cost_thresholds <- function(data) {
+  # Create empty vectors to store results
+  thresholds <- seq(0.01, 1, 0.01)  # 1% to 100% in 1% steps
+  prop_outcome_0 <- numeric(length(thresholds))
+  prop_outcome_1 <- numeric(length(thresholds))
+  differences <- numeric(length(thresholds))
+  
+  # Loop through each threshold
+  for(i in seq_along(thresholds)) {
+    # Create binary flag for current threshold
+    over_threshold <- data$cost_over_income >= thresholds[i]
+    
+    # Calculate proportion table
+    props <- prop.table(table(over_threshold, data$final_outcome), 2)
+    
+    # Store TRUE proportions for each outcome
+    prop_outcome_0[i] <- props[2, 1]  # TRUE proportion for outcome 0
+    prop_outcome_1[i] <- props[2, 2]  # TRUE proportion for outcome 1
+    
+    # Calculate difference in TRUE proportions
+    differences[i] <- prop_outcome_0[i] - prop_outcome_1[i]
+  }
+  
+  # Create results table
+  results <- data.frame(
+    threshold_pct = thresholds * 100,
+    catastrophic_dot = prop_outcome_0,
+    catastrophic_sat = prop_outcome_1,
+    difference = differences
+  )
+  
+  return(results)
+}
+
+# Apply the function to your data
+threshold_analysis <- analyze_cost_thresholds(temp5)
+
+# Optional: View first few rows of results
+head(threshold_analysis)
+```
+
+```{r}
+library(ggplot2)
+library(tidyr)
+
+# First, let's reshape the data for easier plotting
+threshold_analysis_long <- threshold_analysis %>%
+  pivot_longer(
+    cols = c(catastrophic_dot, catastrophic_sat),
+    names_to = "outcome_type",
+    values_to = "proportion"
+  )
+
+# Create the plot
+ggplot() +
+  # Plot the two proportion lines
+  geom_line(
+    data = threshold_analysis_long,
+    aes(
+      x = threshold_pct,
+      y = proportion,
+      linetype = outcome_type,
+      color = "Proportions"
+    ),
+    size = 1
+  ) +
+  # Plot the difference line
+  geom_line(
+    data = threshold_analysis,
+    aes(
+      x = threshold_pct,
+      y = difference,
+      color = "Difference"
+    ),
+    size = 1
+  ) +
+  # Customize the appearance
+  scale_linetype_manual(
+    name = "Population",
+    values = c("solid", "dotted"),
+    labels = c("DOT Population", "SAT Population")
+  ) +
+  scale_color_manual(
+    name = "Measure",
+    values = c("Proportions" = "black", "Difference" = "red")
+  ) +
+  # Add labels and title
+  labs(
+    x = "Cost-to-Income Threshold (%)",
+    y = "Proportion",
+    title = "Cost-to-Income Threshold Analysis by Treatment Group"
+  ) +
+  # Customize theme
+  theme_minimal() +
+  theme(
+    legend.position = "right",
+    panel.grid.minor = element_blank(),
+    plot.title = element_text(hjust = 0.5)
+  )
+```
+
+
+

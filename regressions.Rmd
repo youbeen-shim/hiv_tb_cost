@@ -368,14 +368,6 @@ analyze_cost_thresholds <- function(data) {
 # Apply the function to your data
 threshold_analysis <- analyze_cost_thresholds(temp5)
 
-# Optional: View first few rows of results
-head(threshold_analysis)
-```
-
-```{r}
-library(ggplot2)
-library(tidyr)
-
 # First, let's reshape the data for easier plotting
 threshold_analysis_long <- threshold_analysis %>%
   pivot_longer(
@@ -431,6 +423,15 @@ ggplot() +
     plot.title = element_text(hjust = 0.5)
   )
 ```
+
+```{r}
+temp6 <- threshold_analysis %>%
+  mutate(catastrophic_sat_lag = lag(catastrophic_sat, 5),
+         diff_lag = lag(difference, 5)) %>%
+  mutate(rate_of_change = catastrophic_sat_lag/catastrophic_sat,
+         rate_of_change_diff = diff_lag/difference)
+```
+
 
 
 

@@ -151,3 +151,31 @@ ratio_model <- lm(ratio_of_cost_to_income ~ age_atenroll + sex + faraway,
 summary(ratio_model)
 ```
 
+```{r}
+# Load ggplot2 package
+library(ggplot2)
+
+# Scatter plot comparing age_atenroll and hourlywage_log
+ggplot(temp, aes(y = age_atenroll, x = hourlywage_log)) +
+  geom_point(color = "blue", alpha = 0.6) + # Scatter points
+  geom_smooth(method = "lm", color = "red", se = TRUE) + # Add a linear trend line
+  labs(
+    title = "Comparison of Age at Enrollment and Hourly Wage (Log)",
+    y = "Age at Enrollment",
+    x = "Hourly Wage (Log Scale)"
+  ) +
+  theme_minimal() # Apply a clean theme
+
+
+# Scatter plot comparing age_atenroll and hourlywage_log
+ggplot(temp, aes(y = age_atenroll, x = hourlywage)) +
+  geom_point(color = "blue", alpha = 0.6) + # Scatter points
+  geom_smooth(method = "lm", color = "red", se = TRUE) + # Add a linear trend line
+  labs(
+    title = "Comparison of Age at Enrollment and Hourly Wage",
+    y = "Age at Enrollment",
+    x = "Hourly Wage"
+  ) +
+  theme_minimal() # Apply a clean theme
+```
+

@@ -399,6 +399,9 @@ ggplot() +
     ),
     size = 1
   ) +
+  geom_vline(xintercept = 15, linetype="dotted", color = 'red') + 
+  geom_vline(xintercept = 25, linetype="dotted", color = 'red') + 
+  geom_vline(xintercept = 55, linetype="dotted", color = 'red') + 
   # Customize the appearance
   scale_linetype_manual(
     name = "Population",
